@@ -1,0 +1,268 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+#canvas{position:relative;width:100%;height:600px;background-color:#fafaf8;background-image:linear-gradient(rgba(140,140,120,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(140,140,120,0.2) 1px,transparent 1px);background-size:24px 24px;overflow:hidden;cursor:default}
+#canvas.panning{cursor:grabbing}
+.memo{position:absolute;min-width:160px;padding:8px;border:none;border-radius:2px;cursor:grab;user-select:none;background:transparent}
+.memo.dragging{cursor:grabbing;opacity:0.85;z-index:1000}
+.memo-text{min-width:144px;min-height:56px;background:transparent;border:none;outline:none;font-size:14px;line-height:1.65;font-family:var(--font-sans,'sans-serif');color:var(--color-text-primary,#222);cursor:text;white-space:pre-wrap;word-break:break-word}
+.memo-text:empty::before{content:attr(data-placeholder);color:rgba(160,155,140,0.6);pointer-events:none}
+#toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:500;display:flex;gap:8px;align-items:center;background:var(--color-background-primary,#fff);border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.07)}
+#toolbar button{background:none;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;color:var(--color-text-primary,#333);transition:background 0.12s}
+#toolbar button:hover{background:var(--color-background-secondary,#f3f3f3)}
+#hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(130,130,120,0.7);pointer-events:none;white-space:nowrap}
+.delete-confirm{position:absolute;z-index:2000;background:var(--color-background-primary,#fff);border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.12);display:flex;flex-direction:column;gap:8px;min-width:140px}
+.delete-confirm p{font-size:13px;color:var(--color-text-secondary,#555)}
+.delete-confirm-btns{display:flex;gap:6px}
+.delete-confirm-btns button{flex:1;padding:5px 0;font-size:13px;border-radius:6px;border:0.5px solid rgba(0,0,0,0.12);cursor:pointer;background:none;color:var(--color-text-primary,#333)}
+.delete-confirm-btns .btn-delete{background:#e24b4a;color:#fff;border-color:#e24b4a}
+.delete-confirm-btns .btn-delete:hover{background:#c93c3b}
+.delete-confirm-btns .btn-cancel:hover{background:var(--color-background-secondary,#f3f3f3)}
+</style>
+
+<div id="canvas">
+  <div id="toolbar">
+    <button id="addBtn"><i class="ti ti-plus" aria-hidden="true"></i> メモを追加</button>
+  </div>
+  <div id="hint">ダブルクリック・右クリックでメモ追加 · 空白ドラッグでスクロール · 長押しで削除</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+let notes = [];
+let nextId = 1;
+let panStart = null;
+let panOrigin = {x:0,y:0};
+let offset = {x:0,y:0};
+let dragState = null;
+let selectedId = null;
+let confirmEl = null;
+const LONG_PRESS_MS = 600;
+
+function saveNotes(){
+  try{
+    localStorage.setItem('graphmemo5_notes', JSON.stringify(notes));
+    localStorage.setItem('graphmemo5_offset', JSON.stringify(offset));
+  }catch(e){}
+}
+function loadNotes(){
+  try{
+    const d=localStorage.getItem('graphmemo5_notes');
+    const o=localStorage.getItem('graphmemo5_offset');
+    if(d) notes=JSON.parse(d);
+    if(o) offset=JSON.parse(o);
+    if(notes.length) nextId=Math.max(...notes.map(n=>n.id))+1;
+  }catch(e){}
+}
+function applyOffset(){
+  canvas.style.backgroundPosition=offset.x+'px '+offset.y+'px';
+}
+function dismissConfirm(){
+  if(confirmEl){confirmEl.remove();confirmEl=null;}
+}
+function showDeleteConfirm(noteId,x,y){
+  dismissConfirm();
+  const el=document.createElement('div');
+  el.className='delete-confirm';
+  el.innerHTML=`<p>このメモを削除しますか？</p><div class="delete-confirm-btns"><button class="btn-cancel">キャンセル</button><button class="btn-delete">削除</button></div>`;
+  canvas.appendChild(el);
+  confirmEl=el;
+  el.querySelector('.btn-cancel').addEventListener('click',dismissConfirm);
+  el.querySelector('.btn-delete').addEventListener('click',()=>{
+    notes=notes.filter(n=>n.id!==noteId);
+    dismissConfirm();saveNotes();renderNotes();
+  });
+  const cw=canvas.clientWidth,ch=canvas.clientHeight;
+  let lx=x,ly=y;
+  if(lx+160>cw) lx=cw-164;
+  if(ly+90>ch) ly=y-94;
+  el.style.left=Math.max(4,lx)+'px';
+  el.style.top=Math.max(4,ly)+'px';
+}
+
+function renderNotes(){
+  const existing={};
+  canvas.querySelectorAll('.memo').forEach(el=>existing[el.dataset.id]=el);
+  const seen={};
+  notes.forEach(n=>{
+    seen[n.id]=true;
+    let el=existing[n.id];
+    if(!el){el=createMemoEl(n);canvas.appendChild(el);}
+    el.style.left=(n.x+offset.x)+'px';
+    el.style.top=(n.y+offset.y)+'px';
+    const ed=el.querySelector('.memo-text');
+    if(document.activeElement!==ed) ed.textContent=n.text;
+  });
+  Object.keys(existing).forEach(id=>{if(!seen[id]) existing[id].remove();});
+}
+
+function createMemoEl(n){
+  const el=document.createElement('div');
+  el.className='memo';
+  el.dataset.id=n.id;
+
+  const ed=document.createElement('div');
+  ed.className='memo-text';
+  ed.contentEditable='true';
+  ed.dataset.placeholder='メモ…';
+  ed.textContent=n.text;
+
+  ed.addEventListener('input',()=>{
+    const note=notes.find(x=>x.id===n.id);
+    if(note){note.text=ed.textContent;saveNotes();}
+  });
+  ed.addEventListener('mousedown',e=>e.stopPropagation());
+  ed.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+  el.appendChild(ed);
+
+  let longPressTimer=null;
+  let didDrag=false;
+
+  function startLongPress(e){
+    if(e.target===ed||ed.contains(e.target)) return;
+    didDrag=false;
+    longPressTimer=setTimeout(()=>{
+      if(!didDrag){
+        const r=canvas.getBoundingClientRect();
+        const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+        const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+        showDeleteConfirm(n.id,cx,cy);
+      }
+    },LONG_PRESS_MS);
+  }
+  function cancelLongPress(){clearTimeout(longPressTimer);}
+
+  el.addEventListener('mousedown',e=>{
+    if(e.target===ed||ed.contains(e.target)) return;
+    e.preventDefault();
+    dismissConfirm();
+    startLongPress(e);
+    selectedId=n.id;
+    const note=notes.find(x=>x.id===n.id);
+    if(!note) return;
+    notes=notes.filter(x=>x.id!==n.id);
+    notes.push(note);
+    dragState={id:n.id,startX:e.clientX,startY:e.clientY,origX:note.x,origY:note.y,moved:false};
+    el.classList.add('dragging');
+    renderNotes();
+  });
+
+  el.addEventListener('touchstart',e=>{
+    if(e.target===ed||ed.contains(e.target)) return;
+    startLongPress(e);
+    const note=notes.find(x=>x.id===n.id);
+    if(!note) return;
+    const t=e.touches[0];
+    dragState={id:n.id,startX:t.clientX,startY:t.clientY,origX:note.x,origY:note.y,moved:false};
+    notes=notes.filter(x=>x.id!==n.id);
+    notes.push(note);
+    selectedId=n.id;
+    el.classList.add('dragging');
+    renderNotes();
+  },{passive:true});
+
+  el.addEventListener('touchmove',e=>{
+    didDrag=true;
+    cancelLongPress();
+    if(!dragState) return;
+    const t=e.touches[0];
+    const note=notes.find(x=>x.id===dragState.id);
+    if(note){
+      note.x=dragState.origX+(t.clientX-dragState.startX);
+      note.y=dragState.origY+(t.clientY-dragState.startY);
+      renderNotes();
+    }
+    e.preventDefault();
+  },{passive:false});
+
+  el.addEventListener('touchend',()=>{
+    cancelLongPress();
+    el.classList.remove('dragging');
+    if(dragState){saveNotes();dragState=null;}
+  });
+
+  return el;
+}
+
+function addNote(x,y){
+  const note={id:nextId++,x:x-offset.x,y:y-offset.y,text:''};
+  notes.push(note);
+  saveNotes();
+  renderNotes();
+  const el=canvas.querySelector(`.memo[data-id="${note.id}"]`);
+  if(el){
+    const ed=el.querySelector('.memo-text');
+    ed.focus();
+    const range=document.createRange();
+    range.selectNodeContents(ed);
+    range.collapse(false);
+    const sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  selectedId=note.id;
+}
+
+document.getElementById('addBtn').addEventListener('click',()=>{
+  addNote(canvas.clientWidth/2-80,canvas.clientHeight/2-40);
+});
+canvas.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  const r=canvas.getBoundingClientRect();
+  addNote(e.clientX-r.left,e.clientY-r.top);
+});
+canvas.addEventListener('dblclick',e=>{
+  if(e.target===canvas||e.target===document.getElementById('hint')){
+    const r=canvas.getBoundingClientRect();
+    addNote(e.clientX-r.left,e.clientY-r.top);
+  }
+});
+canvas.addEventListener('mousedown',e=>{
+  if(e.target===canvas||e.target===document.getElementById('hint')){
+    dismissConfirm();
+    panStart={x:e.clientX,y:e.clientY};
+    panOrigin={x:offset.x,y:offset.y};
+    canvas.classList.add('panning');
+    selectedId=null;
+  }
+});
+window.addEventListener('mousemove',e=>{
+  if(dragState){
+    const note=notes.find(x=>x.id===dragState.id);
+    if(note){
+      const dx=e.clientX-dragState.startX,dy=e.clientY-dragState.startY;
+      if(Math.abs(dx)>3||Math.abs(dy)>3) dragState.moved=true;
+      note.x=dragState.origX+dx;
+      note.y=dragState.origY+dy;
+      renderNotes();
+    }
+  } else if(panStart){
+    offset.x=panOrigin.x+(e.clientX-panStart.x);
+    offset.y=panOrigin.y+(e.clientY-panStart.y);
+    applyOffset();
+    renderNotes();
+  }
+});
+window.addEventListener('mouseup',()=>{
+  if(dragState){
+    const el=canvas.querySelector(`.memo[data-id="${dragState.id}"]`);
+    if(el) el.classList.remove('dragging');
+    saveNotes();dragState=null;
+  }
+  if(panStart){panStart=null;canvas.classList.remove('panning');saveNotes();}
+});
+window.addEventListener('click',e=>{
+  if(confirmEl&&!confirmEl.contains(e.target)) dismissConfirm();
+});
+
+loadNotes();
+applyOffset();
+renderNotes();
+
+if(notes.length===0){
+  addNote(60,80);
+  const first=notes[0];
+  first.text='ダブルクリック・右クリックでメモを追加\n長押しで削除';
+  saveNotes();renderNotes();
+}
+</script>
