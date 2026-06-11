@@ -1,31 +1,40 @@
-
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方眼メモ</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-#canvas{position:relative;width:100%;height:600px;background-color:#fafaf8;background-image:linear-gradient(rgba(140,140,120,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(140,140,120,0.2) 1px,transparent 1px);background-size:24px 24px;overflow:hidden;cursor:default}
+html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#canvas{position:fixed;inset:0;background-color:#fafaf8;background-image:linear-gradient(rgba(140,140,120,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(140,140,120,0.2) 1px,transparent 1px);background-size:24px 24px;cursor:default}
 #canvas.panning{cursor:grabbing}
-.memo{position:absolute;min-width:160px;padding:8px;border:none;border-radius:2px;cursor:grab;user-select:none;background:transparent}
+.memo{position:absolute;min-width:160px;padding:8px;border:none;cursor:grab;user-select:none;background:transparent}
 .memo.dragging{cursor:grabbing;opacity:0.85;z-index:1000}
-.memo-text{min-width:144px;min-height:56px;background:transparent;border:none;outline:none;font-size:14px;line-height:1.65;font-family:var(--font-sans,'sans-serif');color:var(--color-text-primary,#222);cursor:text;white-space:pre-wrap;word-break:break-word}
+.memo-text{min-width:144px;min-height:56px;background:transparent;border:none;outline:none;font-size:14px;line-height:1.65;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#222;cursor:text;white-space:pre-wrap;word-break:break-word}
 .memo-text:empty::before{content:attr(data-placeholder);color:rgba(160,155,140,0.6);pointer-events:none}
-#toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:500;display:flex;gap:8px;align-items:center;background:var(--color-background-primary,#fff);border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.07)}
-#toolbar button{background:none;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;color:var(--color-text-primary,#333);transition:background 0.12s}
-#toolbar button:hover{background:var(--color-background-secondary,#f3f3f3)}
-#hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(130,130,120,0.7);pointer-events:none;white-space:nowrap}
-.delete-confirm{position:absolute;z-index:2000;background:var(--color-background-primary,#fff);border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.12);display:flex;flex-direction:column;gap:8px;min-width:140px}
-.delete-confirm p{font-size:13px;color:var(--color-text-secondary,#555)}
-.delete-confirm-btns{display:flex;gap:6px}
-.delete-confirm-btns button{flex:1;padding:5px 0;font-size:13px;border-radius:6px;border:0.5px solid rgba(0,0,0,0.12);cursor:pointer;background:none;color:var(--color-text-primary,#333)}
+#toolbar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:500;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:0.5px solid rgba(0,0,0,0.12);border-radius:10px;padding:6px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+#toolbar button{background:none;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;color:#333;transition:background 0.12s;display:flex;align-items:center;gap:5px}
+#toolbar button:hover{background:rgba(0,0,0,0.05)}
+#hint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(130,130,120,0.7);pointer-events:none;white-space:nowrap}
+.delete-confirm{position:fixed;z-index:2000;background:#fff;border:0.5px solid rgba(0,0,0,0.15);border-radius:10px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.12);display:flex;flex-direction:column;gap:10px;min-width:160px}
+.delete-confirm p{font-size:13px;color:#555}
+.delete-confirm-btns{display:flex;gap:8px}
+.delete-confirm-btns button{flex:1;padding:6px 0;font-size:13px;border-radius:6px;border:0.5px solid rgba(0,0,0,0.12);cursor:pointer;background:none;color:#333}
 .delete-confirm-btns .btn-delete{background:#e24b4a;color:#fff;border-color:#e24b4a}
 .delete-confirm-btns .btn-delete:hover{background:#c93c3b}
-.delete-confirm-btns .btn-cancel:hover{background:var(--color-background-secondary,#f3f3f3)}
+.delete-confirm-btns .btn-cancel:hover{background:rgba(0,0,0,0.05)}
 </style>
-
-<div id="canvas">
-  <div id="toolbar">
-    <button id="addBtn"><i class="ti ti-plus" aria-hidden="true"></i> メモを追加</button>
-  </div>
-  <div id="hint">ダブルクリック・右クリックでメモ追加 · 空白ドラッグでスクロール · 長押しで削除</div>
+</head>
+<body>
+<div id="canvas"></div>
+<div id="toolbar">
+  <button id="addBtn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    メモを追加
+  </button>
 </div>
+<div id="hint">ダブルクリック・右クリックでメモ追加 &nbsp;·&nbsp; 空白ドラッグでスクロール &nbsp;·&nbsp; 長押しで削除</div>
 
 <script>
 const canvas = document.getElementById('canvas');
@@ -41,14 +50,14 @@ const LONG_PRESS_MS = 600;
 
 function saveNotes(){
   try{
-    localStorage.setItem('graphmemo5_notes', JSON.stringify(notes));
-    localStorage.setItem('graphmemo5_offset', JSON.stringify(offset));
+    localStorage.setItem('graphmemo_notes', JSON.stringify(notes));
+    localStorage.setItem('graphmemo_offset', JSON.stringify(offset));
   }catch(e){}
 }
 function loadNotes(){
   try{
-    const d=localStorage.getItem('graphmemo5_notes');
-    const o=localStorage.getItem('graphmemo5_offset');
+    const d=localStorage.getItem('graphmemo_notes');
+    const o=localStorage.getItem('graphmemo_offset');
     if(d) notes=JSON.parse(d);
     if(o) offset=JSON.parse(o);
     if(notes.length) nextId=Math.max(...notes.map(n=>n.id))+1;
@@ -65,17 +74,17 @@ function showDeleteConfirm(noteId,x,y){
   const el=document.createElement('div');
   el.className='delete-confirm';
   el.innerHTML=`<p>このメモを削除しますか？</p><div class="delete-confirm-btns"><button class="btn-cancel">キャンセル</button><button class="btn-delete">削除</button></div>`;
-  canvas.appendChild(el);
+  document.body.appendChild(el);
   confirmEl=el;
   el.querySelector('.btn-cancel').addEventListener('click',dismissConfirm);
   el.querySelector('.btn-delete').addEventListener('click',()=>{
     notes=notes.filter(n=>n.id!==noteId);
     dismissConfirm();saveNotes();renderNotes();
   });
-  const cw=canvas.clientWidth,ch=canvas.clientHeight;
+  const vw=window.innerWidth,vh=window.innerHeight;
   let lx=x,ly=y;
-  if(lx+160>cw) lx=cw-164;
-  if(ly+90>ch) ly=y-94;
+  if(lx+180>vw) lx=vw-184;
+  if(ly+100>vh) ly=y-104;
   el.style.left=Math.max(4,lx)+'px';
   el.style.top=Math.max(4,ly)+'px';
 }
@@ -123,9 +132,8 @@ function createMemoEl(n){
     didDrag=false;
     longPressTimer=setTimeout(()=>{
       if(!didDrag){
-        const r=canvas.getBoundingClientRect();
-        const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
-        const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+        const cx=e.touches?e.touches[0].clientX:e.clientX;
+        const cy=e.touches?e.touches[0].clientY:e.clientY;
         showDeleteConfirm(n.id,cx,cy);
       }
     },LONG_PRESS_MS);
@@ -204,21 +212,19 @@ function addNote(x,y){
 }
 
 document.getElementById('addBtn').addEventListener('click',()=>{
-  addNote(canvas.clientWidth/2-80,canvas.clientHeight/2-40);
+  addNote(window.innerWidth/2-80, window.innerHeight/2-40);
 });
 canvas.addEventListener('contextmenu',e=>{
   e.preventDefault();
-  const r=canvas.getBoundingClientRect();
-  addNote(e.clientX-r.left,e.clientY-r.top);
+  addNote(e.clientX,e.clientY);
 });
 canvas.addEventListener('dblclick',e=>{
-  if(e.target===canvas||e.target===document.getElementById('hint')){
-    const r=canvas.getBoundingClientRect();
-    addNote(e.clientX-r.left,e.clientY-r.top);
+  if(e.target===canvas){
+    addNote(e.clientX,e.clientY);
   }
 });
 canvas.addEventListener('mousedown',e=>{
-  if(e.target===canvas||e.target===document.getElementById('hint')){
+  if(e.target===canvas){
     dismissConfirm();
     panStart={x:e.clientX,y:e.clientY};
     panOrigin={x:offset.x,y:offset.y};
@@ -260,9 +266,11 @@ applyOffset();
 renderNotes();
 
 if(notes.length===0){
-  addNote(60,80);
+  addNote(80,100);
   const first=notes[0];
   first.text='ダブルクリック・右クリックでメモを追加\n長押しで削除';
   saveNotes();renderNotes();
 }
 </script>
+</body>
+</html>
