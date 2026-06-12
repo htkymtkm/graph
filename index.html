@@ -7,88 +7,226 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-#canvas{position:fixed;inset:0;background-color:#fafaf8;background-image:linear-gradient(rgba(140,140,120,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(140,140,120,0.2) 1px,transparent 1px);background-size:24px 24px;cursor:default}
+
+#canvas{position:fixed;inset:0;background-color:#fafaf8;background-image:linear-gradient(rgba(140,140,120,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(140,140,120,0.2) 1px,transparent 1px);background-size:24px 24px;cursor:default;transition:background-color 0.2s}
 #canvas.panning{cursor:grabbing}
+body.delete-mode #canvas{background-color:#fdf8f8}
+
+#toolbar{position:fixed;top:14px;right:16px;z-index:500;display:flex;flex-direction:column;gap:8px;align-items:center}
+
+.tb-btn{width:40px;height:40px;border-radius:50%;border:0.5px solid rgba(0,0,0,0.13);background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(0,0,0,0.09);cursor:pointer;display:flex;align-items:center;justify-content:center;color:#444;transition:background 0.15s,box-shadow 0.15s,color 0.15s;padding:0;position:relative;flex-shrink:0}
+.tb-btn:hover{background:#fff;box-shadow:0 3px 14px rgba(0,0,0,0.13)}
+.tb-btn.active{background:#e24b4a;border-color:#e24b4a;color:#fff;box-shadow:0 3px 14px rgba(226,75,74,0.28)}
+
+#bm-separator{width:20px;height:1px;background:rgba(0,0,0,0.1);border-radius:1px}
+
+.bm-btn{position:relative;width:40px;height:40px;border-radius:50%;border:0.5px solid rgba(0,0,0,0.13);background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(0,0,0,0.09);cursor:pointer;display:flex;align-items:center;justify-content:center;color:#444;transition:background 0.15s,box-shadow 0.15s;padding:0;flex-shrink:0}
+.bm-btn:hover{background:#fff;box-shadow:0 3px 14px rgba(0,0,0,0.13)}
+.bm-del{display:none;position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#e24b4a;color:#fff;border:none;font-size:11px;cursor:pointer;align-items:center;justify-content:center;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+body.delete-mode .bm-del{display:flex}
+
 .memo{position:absolute;min-width:160px;padding:8px;border:none;cursor:grab;user-select:none;background:transparent}
 .memo.dragging{cursor:grabbing;opacity:0.85;z-index:1000}
 .memo-text{min-width:144px;min-height:56px;background:transparent;border:none;outline:none;font-size:14px;line-height:1.65;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#222;cursor:text;white-space:pre-wrap;word-break:break-word}
 .memo-text:empty::before{content:attr(data-placeholder);color:rgba(160,155,140,0.6);pointer-events:none}
-#toolbar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:500;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:0.5px solid rgba(0,0,0,0.12);border-radius:10px;padding:6px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
-#toolbar button{background:none;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;color:#333;transition:background 0.12s;display:flex;align-items:center;gap:5px}
-#toolbar button:hover{background:rgba(0,0,0,0.05)}
-#hint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(130,130,120,0.7);pointer-events:none;white-space:nowrap}
-.delete-confirm{position:fixed;z-index:2000;background:#fff;border:0.5px solid rgba(0,0,0,0.15);border-radius:10px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.12);display:flex;flex-direction:column;gap:10px;min-width:160px}
-.delete-confirm p{font-size:13px;color:#555}
-.delete-confirm-btns{display:flex;gap:8px}
-.delete-confirm-btns button{flex:1;padding:6px 0;font-size:13px;border-radius:6px;border:0.5px solid rgba(0,0,0,0.12);cursor:pointer;background:none;color:#333}
-.delete-confirm-btns .btn-delete{background:#e24b4a;color:#fff;border-color:#e24b4a}
-.delete-confirm-btns .btn-delete:hover{background:#c93c3b}
-.delete-confirm-btns .btn-cancel:hover{background:rgba(0,0,0,0.05)}
+body.delete-mode .memo{cursor:pointer}
+body.delete-mode .memo .memo-text{pointer-events:none}
+.memo-del-btn{display:none;position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:#e24b4a;color:#fff;border:none;font-size:14px;line-height:1;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.2);z-index:10;padding:0}
+body.delete-mode .memo-del-btn{display:flex}
+
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(6px);background:rgba(40,40,40,0.82);color:#fff;font-size:12px;padding:7px 16px;border-radius:20px;opacity:0;pointer-events:none;transition:opacity 0.22s,transform 0.22s;white-space:nowrap;z-index:9999}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
+
 <div id="toolbar">
-  <button id="addBtn">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    メモを追加
+  <button class="tb-btn" id="addBtn" title="メモを追加">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
   </button>
+  <button class="tb-btn" id="deleteBtn" title="削除モード">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+  <button class="tb-btn" id="flagBtn" title="原点に戻る">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M5 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <path d="M5 3 L19 8 L5 14 Z"/>
+    </svg>
+  </button>
+  <button class="tb-btn" id="pinAddBtn" title="現在位置をブックマークに追加">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+      <circle cx="12" cy="9" r="2.5"/>
+    </svg>
+    <svg width="10" height="10" viewBox="0 0 10 10" style="position:absolute;bottom:2px;right:2px;background:#fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,0.1)" fill="none" stroke="#444" stroke-width="1.8" stroke-linecap="round">
+      <line x1="5" y1="2" x2="5" y2="8"/><line x1="2" y1="5" x2="8" y2="5"/>
+    </svg>
+  </button>
+  <div id="bm-separator" style="display:none"></div>
 </div>
-<div id="hint">ダブルクリック・右クリックでメモ追加 &nbsp;·&nbsp; 空白ドラッグでスクロール &nbsp;·&nbsp; 長押しで削除</div>
+
+<div id="toast"></div>
 
 <script>
 const canvas = document.getElementById('canvas');
-let notes = [];
-let nextId = 1;
-let panStart = null;
-let panOrigin = {x:0,y:0};
-let offset = {x:0,y:0};
-let dragState = null;
-let selectedId = null;
-let confirmEl = null;
-const LONG_PRESS_MS = 600;
+const toast  = document.getElementById('toast');
+const bmSep  = document.getElementById('bm-separator');
+const toolbar= document.getElementById('toolbar');
 
-function saveNotes(){
+// 20種のSVGアイコン定義（順列に意味なし）
+const BM_ICONS = [
+  // 0: 星
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`,
+  // 1: ハート
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+  // 2: 稲妻
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>`,
+  // 3: 家
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>`,
+  // 4: 葉
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8C8 10 5.9 16.17 3.82 19.34a1 1 0 0 0 1.38 1.38C8.56 18.69 14 17 17 8z"/><path d="M3 21l4-4"/></svg>`,
+  // 5: 月
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+  // 6: 太陽
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+  // 7: 音符
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+  // 8: カメラ
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+  // 9: コーヒー
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>`,
+  // 10: 本
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  // 11: 地球
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  // 12: 鍵
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`,
+  // 13: ベル
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+  // 14: 飛行機
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2h0A1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
+  // 15: 傘
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/></svg>`,
+  // 16: 花
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4zm0 14a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4zM1 12a4 4 0 0 1 4-4 4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4zm14 0a4 4 0 0 1 4-4 4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4z"/></svg>`,
+  // 17: 山
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="3,20 11,4 13,4 21,20"/><polyline points="3,20 7.5,12 10,16"/></svg>`,
+  // 18: 時計
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>`,
+  // 19: ダイヤ
+  `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3L8 9l4 13 4-13-3-6"/><line x1="2" y1="9" x2="22" y2="9"/></svg>`,
+];
+
+const MAX_BM = BM_ICONS.length; // 20
+
+let notes     = [];
+let nextId    = 1;
+let panStart  = null;
+let panOrigin = {x:0, y:0};
+let offset    = {x:0, y:0};
+let dragState = null;
+let deleteMode= false;
+let bookmarks = []; // {id, iconIndex, offset:{x,y}}
+let toastTimer= null;
+
+// 使用中でないアイコンの中からランダムに1つ返す
+function nextIconIndex(){
+  const used = new Set(bookmarks.map(b=>b.iconIndex));
+  const available = [];
+  for(let i=0;i<MAX_BM;i++) if(!used.has(i)) available.push(i);
+  if(available.length===0) return -1;
+  return available[Math.floor(Math.random()*available.length)];
+}
+
+// --- 永続化 ---
+function save(){
   try{
-    localStorage.setItem('graphmemo_notes', JSON.stringify(notes));
-    localStorage.setItem('graphmemo_offset', JSON.stringify(offset));
+    localStorage.setItem('gm4_notes',     JSON.stringify(notes));
+    localStorage.setItem('gm4_offset',    JSON.stringify(offset));
+    localStorage.setItem('gm4_bookmarks', JSON.stringify(bookmarks));
   }catch(e){}
 }
-function loadNotes(){
+function load(){
   try{
-    const d=localStorage.getItem('graphmemo_notes');
-    const o=localStorage.getItem('graphmemo_offset');
+    const d=localStorage.getItem('gm4_notes');
+    const o=localStorage.getItem('gm4_offset');
+    const b=localStorage.getItem('gm4_bookmarks');
     if(d) notes=JSON.parse(d);
     if(o) offset=JSON.parse(o);
+    if(b) bookmarks=JSON.parse(b);
     if(notes.length) nextId=Math.max(...notes.map(n=>n.id))+1;
   }catch(e){}
 }
+
+// --- キャンバス ---
 function applyOffset(){
   canvas.style.backgroundPosition=offset.x+'px '+offset.y+'px';
 }
-function dismissConfirm(){
-  if(confirmEl){confirmEl.remove();confirmEl=null;}
-}
-function showDeleteConfirm(noteId,x,y){
-  dismissConfirm();
-  const el=document.createElement('div');
-  el.className='delete-confirm';
-  el.innerHTML=`<p>このメモを削除しますか？</p><div class="delete-confirm-btns"><button class="btn-cancel">キャンセル</button><button class="btn-delete">削除</button></div>`;
-  document.body.appendChild(el);
-  confirmEl=el;
-  el.querySelector('.btn-cancel').addEventListener('click',dismissConfirm);
-  el.querySelector('.btn-delete').addEventListener('click',()=>{
-    notes=notes.filter(n=>n.id!==noteId);
-    dismissConfirm();saveNotes();renderNotes();
-  });
-  const vw=window.innerWidth,vh=window.innerHeight;
-  let lx=x,ly=y;
-  if(lx+180>vw) lx=vw-184;
-  if(ly+100>vh) ly=y-104;
-  el.style.left=Math.max(4,lx)+'px';
-  el.style.top=Math.max(4,ly)+'px';
+function animateTo(target, done){
+  const sx=offset.x, sy=offset.y;
+  const dx=target.x-sx, dy=target.y-sy;
+  if(Math.abs(dx)<1&&Math.abs(dy)<1){if(done)done();return;}
+  const dur=320; let start=null;
+  function step(ts){
+    if(!start) start=ts;
+    const t=Math.min((ts-start)/dur,1);
+    const e=1-Math.pow(1-t,3);
+    offset.x=sx+dx*e; offset.y=sy+dy*e;
+    applyOffset(); renderNotes();
+    if(t<1) requestAnimationFrame(step);
+    else if(done) done();
+  }
+  requestAnimationFrame(step);
 }
 
+// --- トースト ---
+function showToast(msg){
+  clearTimeout(toastTimer);
+  toast.textContent=msg;
+  toast.classList.add('show');
+  toastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
+}
+
+// --- 削除モード ---
+function setDeleteMode(on){
+  deleteMode=on;
+  document.getElementById('deleteBtn').classList.toggle('active',on);
+  document.body.classList.toggle('delete-mode',on);
+}
+
+// --- ブックマーク描画 ---
+function renderBookmarks(){
+  toolbar.querySelectorAll('.bm-btn').forEach(el=>el.remove());
+  bmSep.style.display = bookmarks.length ? 'block' : 'none';
+  bookmarks.forEach(bm=>{
+    const btn=document.createElement('button');
+    btn.className='bm-btn';
+    btn.title='ここへ移動';
+    btn.innerHTML=BM_ICONS[bm.iconIndex];
+    btn.addEventListener('click',()=>{
+      if(deleteMode) return;
+      animateTo(bm.offset,()=>save());
+      showToast('移動しました');
+    });
+    const del=document.createElement('button');
+    del.className='bm-del';
+    del.innerHTML='&times;';
+    del.addEventListener('click',e=>{
+      e.stopPropagation();
+      bookmarks=bookmarks.filter(x=>x.id!==bm.id);
+      save(); renderBookmarks();
+    });
+    btn.appendChild(del);
+    toolbar.appendChild(btn);
+  });
+}
+
+// --- メモ描画 ---
 function renderNotes(){
   const existing={};
   canvas.querySelectorAll('.memo').forEach(el=>existing[el.dataset.id]=el);
@@ -100,7 +238,7 @@ function renderNotes(){
     el.style.left=(n.x+offset.x)+'px';
     el.style.top=(n.y+offset.y)+'px';
     const ed=el.querySelector('.memo-text');
-    if(document.activeElement!==ed) ed.textContent=n.text;
+    if(document.activeElement!==ed) ed.innerText=n.text;
   });
   Object.keys(existing).forEach(id=>{if(!seen[id]) existing[id].remove();});
 }
@@ -110,68 +248,52 @@ function createMemoEl(n){
   el.className='memo';
   el.dataset.id=n.id;
 
+  const delBtn=document.createElement('button');
+  delBtn.className='memo-del-btn';
+  delBtn.innerHTML='&times;';
+  delBtn.addEventListener('click',e=>{
+    e.stopPropagation();
+    notes=notes.filter(x=>x.id!==n.id);
+    save(); renderNotes();
+  });
+  el.appendChild(delBtn);
+
   const ed=document.createElement('div');
   ed.className='memo-text';
   ed.contentEditable='true';
   ed.dataset.placeholder='メモ…';
-  ed.textContent=n.text;
-
+  ed.innerText=n.text;
   ed.addEventListener('input',()=>{
     const note=notes.find(x=>x.id===n.id);
-    if(note){note.text=ed.textContent;saveNotes();}
+    if(note){note.text=ed.innerText;save();}
   });
-  ed.addEventListener('mousedown',e=>e.stopPropagation());
-  ed.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+  ed.addEventListener('mousedown',e=>{if(!deleteMode) e.stopPropagation();});
+  ed.addEventListener('touchstart',e=>{if(!deleteMode) e.stopPropagation();},{passive:true});
   el.appendChild(ed);
 
-  let longPressTimer=null;
-  let didDrag=false;
-
-  function startLongPress(e){
-    if(e.target===ed||ed.contains(e.target)) return;
-    didDrag=false;
-    longPressTimer=setTimeout(()=>{
-      if(!didDrag){
-        const cx=e.touches?e.touches[0].clientX:e.clientX;
-        const cy=e.touches?e.touches[0].clientY:e.clientY;
-        showDeleteConfirm(n.id,cx,cy);
-      }
-    },LONG_PRESS_MS);
-  }
-  function cancelLongPress(){clearTimeout(longPressTimer);}
-
   el.addEventListener('mousedown',e=>{
-    if(e.target===ed||ed.contains(e.target)) return;
+    if(deleteMode||e.target===ed) return;
     e.preventDefault();
-    dismissConfirm();
-    startLongPress(e);
-    selectedId=n.id;
     const note=notes.find(x=>x.id===n.id);
     if(!note) return;
     notes=notes.filter(x=>x.id!==n.id);
     notes.push(note);
-    dragState={id:n.id,startX:e.clientX,startY:e.clientY,origX:note.x,origY:note.y,moved:false};
+    dragState={id:n.id,startX:e.clientX,startY:e.clientY,origX:note.x,origY:note.y};
     el.classList.add('dragging');
     renderNotes();
   });
-
   el.addEventListener('touchstart',e=>{
-    if(e.target===ed||ed.contains(e.target)) return;
-    startLongPress(e);
+    if(deleteMode||e.target===ed) return;
     const note=notes.find(x=>x.id===n.id);
     if(!note) return;
     const t=e.touches[0];
-    dragState={id:n.id,startX:t.clientX,startY:t.clientY,origX:note.x,origY:note.y,moved:false};
+    dragState={id:n.id,startX:t.clientX,startY:t.clientY,origX:note.x,origY:note.y};
     notes=notes.filter(x=>x.id!==n.id);
     notes.push(note);
-    selectedId=n.id;
     el.classList.add('dragging');
     renderNotes();
   },{passive:true});
-
   el.addEventListener('touchmove',e=>{
-    didDrag=true;
-    cancelLongPress();
     if(!dragState) return;
     const t=e.touches[0];
     const note=notes.find(x=>x.id===dragState.id);
@@ -182,21 +304,19 @@ function createMemoEl(n){
     }
     e.preventDefault();
   },{passive:false});
-
   el.addEventListener('touchend',()=>{
-    cancelLongPress();
     el.classList.remove('dragging');
-    if(dragState){saveNotes();dragState=null;}
+    if(dragState){save();dragState=null;}
   });
-
   return el;
 }
 
+// --- メモ追加 ---
 function addNote(x,y){
+  if(deleteMode) return;
   const note={id:nextId++,x:x-offset.x,y:y-offset.y,text:''};
   notes.push(note);
-  saveNotes();
-  renderNotes();
+  save(); renderNotes();
   const el=canvas.querySelector(`.memo[data-id="${note.id}"]`);
   if(el){
     const ed=el.querySelector('.memo-text');
@@ -204,73 +324,67 @@ function addNote(x,y){
     const range=document.createRange();
     range.selectNodeContents(ed);
     range.collapse(false);
-    const sel=window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
   }
-  selectedId=note.id;
 }
 
+// --- ツールバー ---
 document.getElementById('addBtn').addEventListener('click',()=>{
+  setDeleteMode(false);
   addNote(window.innerWidth/2-80, window.innerHeight/2-40);
 });
-canvas.addEventListener('contextmenu',e=>{
-  e.preventDefault();
-  addNote(e.clientX,e.clientY);
+document.getElementById('deleteBtn').addEventListener('click',()=>{
+  setDeleteMode(!deleteMode);
 });
-canvas.addEventListener('dblclick',e=>{
-  if(e.target===canvas){
-    addNote(e.clientX,e.clientY);
-  }
+document.getElementById('flagBtn').addEventListener('click',()=>{
+  animateTo({x:0,y:0},()=>save());
+  showToast('原点に戻りました');
 });
+document.getElementById('pinAddBtn').addEventListener('click',()=>{
+  const idx=nextIconIndex();
+  if(idx===-1){showToast('ブックマークは20個までです');return;}
+  bookmarks.push({id:Date.now(), iconIndex:idx, offset:{x:offset.x,y:offset.y}});
+  save(); renderBookmarks();
+  showToast('現在位置をブックマークに保存しました');
+});
+
+// --- パン ---
 canvas.addEventListener('mousedown',e=>{
-  if(e.target===canvas){
-    dismissConfirm();
-    panStart={x:e.clientX,y:e.clientY};
-    panOrigin={x:offset.x,y:offset.y};
-    canvas.classList.add('panning');
-    selectedId=null;
-  }
+  if(deleteMode||e.target!==canvas) return;
+  panStart={x:e.clientX,y:e.clientY};
+  panOrigin={x:offset.x,y:offset.y};
+  canvas.classList.add('panning');
 });
 window.addEventListener('mousemove',e=>{
   if(dragState){
     const note=notes.find(x=>x.id===dragState.id);
     if(note){
-      const dx=e.clientX-dragState.startX,dy=e.clientY-dragState.startY;
-      if(Math.abs(dx)>3||Math.abs(dy)>3) dragState.moved=true;
-      note.x=dragState.origX+dx;
-      note.y=dragState.origY+dy;
+      note.x=dragState.origX+(e.clientX-dragState.startX);
+      note.y=dragState.origY+(e.clientY-dragState.startY);
       renderNotes();
     }
   } else if(panStart){
     offset.x=panOrigin.x+(e.clientX-panStart.x);
     offset.y=panOrigin.y+(e.clientY-panStart.y);
-    applyOffset();
-    renderNotes();
+    applyOffset(); renderNotes();
   }
 });
 window.addEventListener('mouseup',()=>{
   if(dragState){
     const el=canvas.querySelector(`.memo[data-id="${dragState.id}"]`);
     if(el) el.classList.remove('dragging');
-    saveNotes();dragState=null;
+    save(); dragState=null;
   }
-  if(panStart){panStart=null;canvas.classList.remove('panning');saveNotes();}
+  if(panStart){panStart=null;canvas.classList.remove('panning');save();}
 });
-window.addEventListener('click',e=>{
-  if(confirmEl&&!confirmEl.contains(e.target)) dismissConfirm();
-});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
-loadNotes();
+// --- 起動 ---
+load();
 applyOffset();
 renderNotes();
-
-if(notes.length===0){
-  addNote(80,100);
-  const first=notes[0];
-  first.text='ダブルクリック・右クリックでメモを追加\n長押しで削除';
-  saveNotes();renderNotes();
-}
+renderBookmarks();
 </script>
 </body>
 </html>
